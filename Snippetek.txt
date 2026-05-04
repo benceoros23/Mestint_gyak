@@ -1,0 +1,388 @@
+Snippetek:
+
+Keres.py
+
+Feladat:
+
+import sys
+from seged import *
+
+
+class Feladat:
+
+    def __init__(self, kezdő, cél=None):
+        self.kezdő = kezdő
+        self.cél = cél
+
+    def rákövetkező(self, állapot):
+        raise NotImplementedError
+
+    def érték(self):
+        raise NotImplementedError
+
+    def célteszt(self, állapot):
+       #return állapot == self.cél
+       raise NotImplementedError
+
+    def útköltség(self, c, állapot1, lépés, állapot2):
+        return c + 1
+Csúcs:
+
+class Csúcs:
+
+    def __init__(self, állapot, szülő=None, lépés=None, útköltség=0):
+        self.állapot = állapot
+        self.szülő = szülő
+        self.lépés = lépés
+        self.útköltség = útköltség
+        if szülő:
+            self.mélység = szülő.mélység + 1
+        else:
+            self.mélység = 0
+
+    def __repr__(self):
+        return "<Csúcs: %s>" % (self.állapot, )
+
+        #return "%s" % (list(self.állapot),)
+
+    def út(self):
+        x, válasz = self, [self]
+        while x.szülő:
+            válasz.append(x.szülő)
+            x = x.szülő
+        return válasz
+
+    def megoldás(self):
+        utam = self.út()
+        utam.reverse()
+        return [csúcs.lépés for csúcs in utam[1:]]
+
+    def kiterjeszt(self, feladat):
+        for (művelet, következő) in feladat.rákövetkező(self.állapot):
+            if következő not in [csúcs.állapot for csúcs in self.út()]:
+                yield Csúcs(következő, self, művelet,
+                            feladat.útköltség(self.útköltség, self.állapot, művelet,
+                                              következő))
+
+
+
+Keres:
+
+def fakereső(feladat, perem):
+    perem.append(Csúcs(feladat.kezdő))
+    while perem:
+        csúcs = perem.pop()
+        if feladat.célteszt(csúcs.állapot):
+            return csúcs
+        else:
+            perem.extend(csúcs.kiterjeszt(feladat))
+
+    return None
+
+def  szélességi_fakereső(feladat):
+    return fakereső(feladat,Sor())
+
+def  mélységi_fakereső(feladat):
+    return fakereső(feladat,Verem())
+
+
+def gráfkereső(feladat, perem):
+    kifejtési_sor = set()
+    perem.append(Csúcs(feladat.kezdő))
+    while perem:
+        csúcs = perem.pop()
+        if feladat.célteszt(csúcs.állapot):
+            return csúcs
+        if csúcs.állapot not in kifejtési_sor:
+            kifejtési_sor.add(csúcs.állapot)
+            perem.extend(csúcs.kiterjeszt(feladat))
+
+    return None
+
+def szélességi_gráfkereső(feladat):
+    return gráfkereső(feladat, Sor())
+def mélységi_gráfkereső(feladat):
+    return gráfkereső(feladat, Verem())
+
+
+def best_first(feladat, heurisztika):
+    return gráfkereső(feladat,RendezettLista(heurisztika))
+
+def a_csillag(feladat, heurisztika):
+    def f(csúcs):
+        return csúcs.útköltség + heurisztika(csúcs)
+
+    return best_first(feladat,f)
+
+
+
+
+bayes:
+
+from sklearn import datasets
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import GaussianNB
+from sklearn.metrics import classification_report, confusion_matrix
+import matplotlib.pyplot as plt
+
+# 1. Adatok betöltése
+iris = datasets.load_iris()
+X = iris.data
+y = iris.target
+
+# 2. Tanító- és tesztadatok szétválasztása
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+# 3. Modell létrehozása
+model = GaussianNB()
+
+# 4. Modell betanítása
+model.fit(X_train, y_train)
+
+# 5. Predikció a teszt adatokon
+y_pred = model.predict(X_test)
+
+# 6. Eredmények kiértékelése
+print("Confusion Matrix:")
+print(confusion_matrix(y_test, y_pred))
+
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred))
+
+
+plt.figure(figsize=(8,6))
+for i, color in zip(range(3), ['red', 'blue', 'green']):
+    plt.scatter(X_test[y_test == i, 0], X_test[y_test == i, 1],
+                color=color, label=iris.target_names[i])
+plt.xlabel('Sepal length')
+plt.ylabel('Sepal width')
+plt.title('Iris tesztadatok - Valós osztályok')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+
+
+neurális haló:
+
+
+from numpy import loadtxt
+from keras.models import Sequential
+from keras.layers import Dense
+from sklearn.model_selection import train_test_split
+
+# Adat betöltése
+dataset = loadtxt('pima-indians-diabetes.csv', delimiter=',')
+
+# Bemeneti (X) és kimeneti (y) változók szétválasztása}
+X = dataset[:, 0:8] #Ez azt jelenti: minden sorból (:), vedd ki az első 8 oszlopot (0:8), X, tehát ez lesz a bemeneti mátrix
+y = dataset[:, 8] # Ez azt jelenti: minden sorból (:), vedd ki a 9. oszlopot (index 8). Ez lesz az y, tehát a kimeneti vektor (target labels), ami 0 vagy 1.
+
+# 70% tanító, 30% teszt adathalmaz
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=42)
+
+# Modell definiálása
+model = Sequential()
+model.add(Dense(12, input_dim=8, activation='relu')) #1.réteg: Dense(hany neuron, hany sorbol all a data adathalmaz, aktivacios fuggveny)
+model.add(Dense(8, activation='relu'))
+model.add(Dense(1, activation='sigmoid'))
+
+# Modell fordítása (compile)
+model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+# Modell tanítása (fit)
+model.fit(X_train, y_train, epochs=150, batch_size=10)
+
+# Modell kiértékelése a teszt adathalmazon
+_, accuracy = model.evaluate(X_test, y_test)
+print('Teszt pontosság: %.2f%%' % (accuracy * 100))
+
+
+kieg:
+
+def update(x, **entries):
+    """Asszociatív tömb, struct értékeinek frissítése."""
+    if isinstance(x, dict):
+        x.update(entries)
+    else:
+        x.__dict__.update(entries)
+    return x
+
+
+def cmp(a, b):
+    return (a > b) - (a < b)
+
+
+def if_(test, result, alternative):
+    """Háromágú értékadás."""
+    if test:
+        if callable(result):
+            return result()
+        return result
+    else:
+        if callable(alternative):
+            return alternative()
+        return alternative
+
+
+class Struct:
+    """Pehelykönnyű osztály, metódusok nélkül."""
+
+    def __init__(self, **entries):
+        """Megadott attribútumok rögzítese."""
+        self.__dict__.update(entries)
+
+    def __repr__(self):
+        """Megjeleníti a struktúrát."""
+        args = ['%s=%s' % (k, repr(v)) for (k, v) in vars(self).items()]
+        return 'Struct(%s)' % ', '.join(args)
+
+
+def jatssz(jatek, *jatekosok):
+    """n személyes, felváltva lépő játékmenet."""
+    allapot = jatek.kezdo
+    jatek.kiir(allapot)
+    while True:
+        for jatekos in jatekosok:
+            lepes = jatekos(jatek, allapot)
+            allapot = jatek.lep(lepes, allapot)
+            jatek.kiir(allapot)
+            if jatek.levele(allapot):
+                return jatek.hasznossag(allapot, jatekosok[0])
+
+
+def num_or_str(x):
+    """Lehetőség szerint számmá alakít."""
+    try:
+        return int(x)
+    except ValueError:
+        try:
+            return float(x)
+        except ValueError:
+            return str(x).strip()
+
+
+amkeres:
+
+def minimax(allapot, jatek):
+    """Legjobb lépés meghatározása teljes kereséssel."""
+    jatekos = jatek.kovetkezik(allapot)
+
+    # definiáljuk a keresési fa egyes szintjein használatos címkézést.
+    def max_ertek(allapot):
+        if jatek.levele(allapot):
+            return jatek.hasznossag(allapot, jatekos)
+        return max([min_ertek(s) for (_, s) in jatek.rakovetkezo(allapot)])
+
+    def min_ertek(allapot):
+        if jatek.levele(allapot):
+            return jatek.hasznossag(allapot, jatekos)
+        return min([max_ertek(s) for (_, s) in jatek.rakovetkezo(allapot)])
+
+    # minimax lényege
+    fiai_ertekei = [(a, min_ertek(s)) for (a, s) in jatek.rakovetkezo(allapot)]
+    lepes, ertek = max(fiai_ertekei, key=lambda a_s: a_s[1])
+    return lepes
+
+
+def alfabeta_kereses(allapot, jatek, d=4, levagas_teszt=None, kiertekel=None):
+    """A játékfa keresése adott mélységig."""
+    jatekos = jatek.kovetkezik(allapot)
+
+    def max_ertek(allapot, alfa, beta, melyseg):
+        if levagas_teszt(allapot, melyseg):
+            return kiertekel(allapot)
+        v = float("-inf")
+        for (a, s) in jatek.rakovetkezo(allapot):
+            v = max(v, min_ertek(s, alfa, beta, melyseg+1))
+            if v >= beta:
+                return v
+            alfa = max(alfa, v)
+        return v
+
+    def min_ertek(allapot, alfa, beta, melyseg):
+        if levagas_teszt(allapot, melyseg):
+            return kiertekel(allapot)
+        v = float("inf")
+        for (a, s) in jatek.rakovetkezo(allapot):
+            v = min(v, max_ertek(s, alfa, beta, melyseg+1))
+            if v <= alfa:
+                return v
+            beta = min(beta, v)
+        return v
+
+    # Alfabéta keresés
+    levagas_teszt = levagas_teszt or \
+        (lambda allapot, melyseg: melyseg > d or jatek.levele(allapot))
+    kiertekel = kiertekel or \
+        (lambda allapot: jatek.hasznossag(allapot, jatekos))
+    alfa = float("-inf")
+    legjobb_lepes = None
+    for a, s in jatek.rakovetkezo(allapot):
+        v = min_ertek(s, alfa, float("inf"), 0)
+        if v > alfa:
+            alfa = v
+            legjobb_lepes = a
+    return legjobb_lepes
+
+
+jatekos:
+
+ef kerdez_jatekos(jatek, allapot):
+    """Felhasználói input."""
+    return num_or_str(input('Mit lép? '))
+
+
+def random_jatekos(jatek, allapot):
+    """Véletlen választ a lehetőségek közül."""
+    return random.choice(jatek.legalis_lepesek(allapot))
+
+
+def alfabeta_jatekos(jatek, allapot):
+    """Játékfában keres."""
+    return alfabeta_kereses(allapot, jatek)
+
+
+def minimax_jatekos(jatek, allapot):
+    """Játékfában keres."""
+    return minimax(allapot, jatek)
+
+
+# JATEK ALAPOSZTALY
+class Jatek:
+    """Absztrakt osztály a játékok megadására."""
+
+    def legalis_lepesek(self, allapot):
+        """Adott állapotban megtehető lépések listája."""
+        raise NotImplementedError()
+
+    def lep(self, lepes, allapot):  # NOQA
+        """Aktuális állapotban megtett lépés eredménye."""
+        raise NotImplementedError
+
+    def hasznossag(self, allapot, jatekos):
+        """A játékos számára ekkora haszna volt (nyereség/veszteség)."""
+        raise NotImplementedError()
+
+    def levele(self, allapot):
+        """A játékfa terminális csúcsa az állapot."""
+        return not self.legalis_lepesek(allapot)
+
+    def kovetkezik(self, allapot):
+        """Soron következő játékos meghatározása."""
+        return allapot.kovetkezik
+
+    def kiir(self, allapot):
+        """Az állás megmutatása."""
+        print(allapot)
+
+    def rakovetkezo(self, allapot):
+        """Rákövetkező (lépés, állapot) párok listája."""
+        return [(lepes, self.lep(lepes, allapot))
+                for lepes in self.legalis_lepesek(allapot)]
+
+    def __repr__(self):
+        """Játék nevének kiírása."""
+        return '<%s>' % self.__class__.__name__
+
+
